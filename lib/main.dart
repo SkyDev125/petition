@@ -23,6 +23,7 @@ class MyApp extends StatelessWidget {
       themeMode:
           ThemeMode.system, // Automatically switch based on device settings
       home: const AuthWrapper(), // Use AuthWrapper
+      debugShowCheckedModeBanner: false, // Remove debug banner
     );
   }
 }

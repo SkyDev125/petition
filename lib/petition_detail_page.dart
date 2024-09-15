@@ -28,20 +28,17 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     _checkIfUserHasVoted();
   }
 
-  // Check if the user has already voted by looking up their vote in the database
   Future<void> _checkIfUserHasVoted() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Not signed in; assume hasn't voted
       return;
     }
 
     try {
-      // Check if the user has already voted on this petition
       DatabaseReference voteRef = _userVoteRef.child(user.uid);
       DataSnapshot snapshot = await voteRef.get();
 
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
       if (snapshot.exists) {
         setState(() {
@@ -49,20 +46,17 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         });
       }
     } catch (e) {
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
-      // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error checking vote status: $e')),
       );
     }
   }
 
-  // Function to vote on a petition, which increments the vote count in the database
   Future<void> _vote() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Optionally, you can prompt the user to sign in
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to vote')),
       );
@@ -70,7 +64,6 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     }
 
     try {
-      // Use a transaction to safely increment the vote count
       await _petitionRef.child('votesCount').runTransaction((currentVotes) {
         if (currentVotes == null) {
           return Transaction.success(1);
@@ -81,13 +74,12 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         }
       });
 
-      // Record that the user has voted along with their email
       await _userVoteRef.child(user.uid).set({
         'email': user.email,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
 
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
       setState(() {
         hasVoted = true;
@@ -97,16 +89,14 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         const SnackBar(content: Text('Thank you for voting!')),
       );
     } catch (e) {
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
-      // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to vote: $e')),
       );
     }
   }
 
-  // Function to retract a vote on a petition, which decrements the vote count in the database
   Future<void> _retractVote() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -117,7 +107,6 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     }
 
     try {
-      // Use a transaction to safely decrement the vote count
       await _petitionRef.child('votesCount').runTransaction((currentVotes) {
         if (currentVotes == null ||
             (currentVotes is int && currentVotes <= 0)) {
@@ -129,10 +118,9 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         }
       });
 
-      // Remove the user's vote record
       await _userVoteRef.child(user.uid).remove();
 
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
       setState(() {
         hasVoted = false;
@@ -142,16 +130,14 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         const SnackBar(content: Text('Your vote has been retracted.')),
       );
     } catch (e) {
-      if (!mounted) return; // Check if the widget is still mounted
+      if (!mounted) return;
 
-      // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to retract vote: $e')),
       );
     }
   }
 
-  // Stream to listen to real-time voteCount updates
   Stream<int> getVoteCountStream() {
     return _petitionRef.child('votesCount').onValue.map((event) {
       final data = event.snapshot.value;
@@ -163,20 +149,21 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     });
   }
 
-  // Stream to listen to real-time voters' emails
-  Stream<List<String>> getVotersEmailsStream() {
+  Stream<List<Map<String, dynamic>>> getVotersEmailsStream() {
     return _userVoteRef.onValue.map((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (data == null) return <String>[];
+      if (data == null) return <Map<String, dynamic>>[];
 
-      // Extract emails from the data
-      List<String> emails = [];
+      List<Map<String, dynamic>> voters = [];
       data.forEach((key, value) {
         if (value is Map<dynamic, dynamic> && value['email'] != null) {
-          emails.add(value['email']);
+          voters.add({
+            'email': value['email'],
+            'timestamp': value['timestamp'],
+          });
         }
       });
-      return emails;
+      return voters;
     });
   }
 
@@ -230,22 +217,31 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: StreamBuilder<List<String>>(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
                 stream: getVotersEmailsStream(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const Text('Error loading voters.');
                   } else if (snapshot.hasData) {
-                    final emails = snapshot.data!;
-                    if (emails.isEmpty) {
+                    final voters = snapshot.data!;
+                    if (voters.isEmpty) {
                       return const Text('No votes yet.');
                     }
                     return ListView.builder(
-                      itemCount: emails.length,
+                      itemCount: voters.length,
                       itemBuilder: (context, index) {
+                        final voter = voters[index];
+                        final email = voter['email'];
+                        final timestamp = voter['timestamp'];
+                        final dateTime =
+                            DateTime.fromMillisecondsSinceEpoch(timestamp);
+                        final formattedDate =
+                            '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute}';
+
                         return ListTile(
                           leading: const Icon(Icons.person),
-                          title: Text(emails[index]),
+                          title: Text(email),
+                          trailing: Text(formattedDate),
                         );
                       },
                     );

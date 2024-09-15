@@ -3,33 +3,35 @@ class Petition {
   final String title;
   final String description;
   final String date;
-  int votes;
+  Map<String, bool> votes; // Votes tracked by user IDs
+  int votesCount; // Separate votesCount field
 
   Petition({
     required this.id,
     required this.title,
     required this.description,
     required this.votes,
+    required this.votesCount,
     required this.date,
   });
 
-  // Convert Firebase Realtime Database snapshot to a Petition
   factory Petition.fromSnapshot(String id, Map<dynamic, dynamic> data) {
     return Petition(
       id: id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      votes: data['votes'] ?? 0,
+      votes: Map<String, bool>.from(data['votes'] ?? {}),
+      votesCount: data['votesCount'] ?? 0, // Initialize votesCount
       date: data['date'] ?? '',
     );
   }
 
-  // Convert Petition to a Map for saving to Firebase Realtime Database
   Map<String, dynamic> toMap() {
     return {
       'title': title,
       'description': description,
       'votes': votes,
+      'votesCount': votesCount, // Include votesCount
       'date': date,
     };
   }

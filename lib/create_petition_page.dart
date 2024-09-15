@@ -37,7 +37,8 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         date: formatDateTime(DateTime.now()),
-        votes: 0,
+        votes: {},
+        votesCount: 0, // Initialize votes as an empty map
       );
 
       try {

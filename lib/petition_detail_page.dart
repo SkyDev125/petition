@@ -76,14 +76,10 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
           return Transaction.success(1);
         } else if (currentVotes is int) {
           return Transaction.success(currentVotes + 1);
-        } else if (currentVotes is double) {
-          return Transaction.success(currentVotes.toInt() + 1);
         } else {
           return Transaction.abort();
         }
       });
-
-      if (!mounted) return; // Check if the widget is still mounted
 
       // Record that the user has voted
       await _userVoteRef.child(user.uid).set(true);
@@ -113,8 +109,6 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
       final data = event.snapshot.value;
       if (data is int) {
         return data;
-      } else if (data is double) {
-        return data.toInt();
       } else {
         return 0;
       }
@@ -139,10 +133,7 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
             StreamBuilder<int>(
               stream: getVoteCountStream(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Text('Votes: ...',
-                      style: TextStyle(fontSize: 16));
-                } else if (snapshot.hasError) {
+                if (snapshot.hasError) {
                   return const Text('Votes: Error',
                       style: TextStyle(fontSize: 16));
                 } else {
@@ -161,10 +152,4 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
       ),
     );
   }
-}
-
-// Example of displaying the date as text without any imports
-String formatDateTime(DateTime dateTime) {
-  return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
-      '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 }

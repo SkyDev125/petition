@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'petition_list_page.dart'; // For the Petition class
+import 'package:firebase_database/firebase_database.dart';
+import 'models/petition.dart';
 
 class CreatePetitionPage extends StatefulWidget {
   const CreatePetitionPage({super.key});
@@ -14,7 +15,7 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  void _createPetition() async {
+  Future<void> _createPetition() async {
     if (_formKey.currentState!.validate()) {
       // Ensure user is signed in
       User? user = FirebaseAuth.instance.currentUser;
@@ -22,16 +23,31 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
         await _signInAnonymously();
       }
 
+      // Generate a new petition reference with a unique ID
+      DatabaseReference petitionRef =
+          FirebaseDatabase.instance.ref().child('petitions').push();
+
       // Create petition
       Petition newPetition = Petition(
-        title: _titleController.text,
-        description: _descriptionController.text,
+        id: petitionRef.key!, // Use the generated key as the ID
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        date: formatDateTime(DateTime.now()),
+        votes: 0,
       );
 
-      // TODO: Save petition to your database
+      try {
+        // Save petition to Realtime Database
+        await petitionRef.set(newPetition.toMap());
 
-      // Navigate back to petition list
-      Navigator.pop(context);
+        // Navigate back to petition list
+        Navigator.pop(context);
+      } catch (e) {
+        // Handle errors
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create petition: $e')),
+        );
+      }
     }
   }
 
@@ -40,7 +56,9 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
       await FirebaseAuth.instance.signInAnonymously();
     } catch (e) {
       // Handle errors
-      print(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to sign in: $e')),
+      );
     }
   }
 
@@ -79,4 +97,10 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
       ),
     );
   }
+}
+
+// Example of displaying the date as text without any imports
+String formatDateTime(DateTime dateTime) {
+  return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
+      '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 }

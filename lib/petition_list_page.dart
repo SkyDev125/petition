@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'create_petition_page.dart';
 import 'petition_detail_page.dart';
+import 'models/petition.dart';
 
 class PetitionListPage extends StatefulWidget {
   const PetitionListPage({super.key});
@@ -11,7 +13,7 @@ class PetitionListPage extends StatefulWidget {
 
 class _PetitionListPageState extends State<PetitionListPage> {
   final TextEditingController _searchController = TextEditingController();
-  List<Petition> _allPetitions = []; // Replace with actual data fetching
+  List<Petition> _allPetitions = [];
   List<Petition> _filteredPetitions = [];
 
   @override
@@ -21,17 +23,29 @@ class _PetitionListPageState extends State<PetitionListPage> {
     _searchController.addListener(_onSearchChanged);
   }
 
-  void _fetchPetitions() {
-    // TODO: Fetch petitions from your database and assign to _allPetitions
-    _allPetitions = [
-      Petition(
-          title: 'Save the Rainforest',
-          description: 'Act now to save our forests.'),
-      Petition(
-          title: 'Reduce Plastic Use',
-          description: 'Encourage reduction in single-use plastics.'),
-    ];
-    _filteredPetitions = _allPetitions;
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchPetitions() async {
+    // Listen to the petitions node in the Firebase Realtime Database
+    DatabaseReference petitionsRef =
+        FirebaseDatabase.instance.ref().child('petitions');
+
+    petitionsRef.onValue.listen((event) {
+      final data = event.snapshot.value as Map<dynamic, dynamic>?;
+      if (data != null) {
+        setState(() {
+          _allPetitions = data.entries
+              .map((entry) => Petition.fromSnapshot(entry.key, entry.value))
+              .toList();
+          _filteredPetitions = _allPetitions;
+        });
+      }
+    });
   }
 
   void _onSearchChanged() {
@@ -49,7 +63,10 @@ class _PetitionListPageState extends State<PetitionListPage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CreatePetitionPage()),
-    );
+    ).then((_) {
+      // Fetch petitions after creating a new petition
+      _fetchPetitions();
+    });
   }
 
   @override
@@ -78,36 +95,31 @@ class _PetitionListPageState extends State<PetitionListPage> {
             ],
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: _filteredPetitions.length,
-              itemBuilder: (context, index) {
-                final petition = _filteredPetitions[index];
-                return ListTile(
-                  title: Text(petition.title),
-                  subtitle: Text(petition.description),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            PetitionDetailPage(petition: petition),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+            child: _filteredPetitions.isEmpty
+                ? const Center(child: Text('No petitions found.'))
+                : ListView.builder(
+                    itemCount: _filteredPetitions.length,
+                    itemBuilder: (context, index) {
+                      final petition = _filteredPetitions[index];
+                      return ListTile(
+                        title: Text(petition.title),
+                        subtitle: Text(petition.description),
+                        trailing: Text(petition.date),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  PetitionDetailPage(petition: petition),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
-}
-
-class Petition {
-  final String title;
-  final String description;
-  int votes;
-
-  Petition({required this.title, required this.description, this.votes = 0});
 }

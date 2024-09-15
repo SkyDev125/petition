@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'petition_list_page.dart'; // For the Petition class
+import 'package:firebase_database/firebase_database.dart';
+import 'models/petition.dart';
 
 class PetitionDetailPage extends StatefulWidget {
   final Petition petition;
@@ -13,31 +14,117 @@ class PetitionDetailPage extends StatefulWidget {
 
 class _PetitionDetailPageState extends State<PetitionDetailPage> {
   bool hasVoted = false;
+  late DatabaseReference _petitionRef;
+  late DatabaseReference _userVoteRef;
 
-  void _vote() async {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // Prompt to sign in
-      await _signInAnonymously();
-    }
-
-    // Update votes
-    setState(() {
-      if (!hasVoted) {
-        widget.petition.votes++;
-        hasVoted = true;
-      }
-    });
-    // TODO: Save vote to your database
+  @override
+  void initState() {
+    super.initState();
+    _petitionRef = FirebaseDatabase.instance
+        .ref()
+        .child('petitions')
+        .child(widget.petition.id);
+    _userVoteRef = _petitionRef.child('votes');
+    _checkIfUserHasVoted();
   }
 
+  // Check if the user has already voted by looking up their vote in the database
+  Future<void> _checkIfUserHasVoted() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Not signed in; assume hasn't voted
+      return;
+    }
+
+    try {
+      // Check if the user has already voted on this petition
+      DatabaseReference voteRef = _userVoteRef.child(user.uid);
+      DataSnapshot snapshot = await voteRef.get();
+      if (snapshot.exists) {
+        setState(() {
+          hasVoted = true;
+        });
+      }
+    } catch (e) {
+      // Handle errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error checking vote status: $e')),
+      );
+    }
+  }
+
+  // Function to vote on a petition, which increments the vote count in the database
+  Future<void> _vote() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Prompt to sign in anonymously
+      await _signInAnonymously();
+      user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // If sign-in failed, exit the function
+        return;
+      }
+    }
+
+    try {
+      // Use a transaction to safely increment the vote count
+      await _petitionRef.child('votesCount').runTransaction((currentVotes) {
+        if (currentVotes == null) {
+          return Transaction.success(1);
+        } else if (currentVotes is int) {
+          return Transaction.success(currentVotes + 1);
+        } else if (currentVotes is double) {
+          return Transaction.success(currentVotes.toInt() + 1);
+        } else {
+          return Transaction.abort();
+        }
+      });
+
+      // Record that the user has voted
+      await _userVoteRef.child(user.uid).set(true);
+
+      setState(() {
+        hasVoted = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thank you for voting!')),
+      );
+    } catch (e) {
+      // Handle errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to vote: $e')),
+      );
+    }
+  }
+
+  // Sign in the user anonymously if they are not signed in
   Future<void> _signInAnonymously() async {
     try {
       await FirebaseAuth.instance.signInAnonymously();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signed in anonymously')),
+      );
     } catch (e) {
-      // Handle errors
-      print(e);
+      // Handle errors during sign-in
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to sign in: $e')),
+      );
     }
+  }
+
+  // Stream to listen to real-time voteCount updates
+  Stream<int> getVoteCountStream() {
+    return _petitionRef.child('votesCount').onValue.map((event) {
+      final data = event.snapshot.value;
+      if (data is int) {
+        return data;
+      } else if (data is double) {
+        return data.toInt();
+      } else {
+        return 0;
+      }
+    });
   }
 
   @override
@@ -50,9 +137,26 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text(widget.petition.description),
+            Text(
+              widget.petition.description,
+              style: const TextStyle(fontSize: 18),
+            ),
             const SizedBox(height: 20),
-            Text('Votes: ${widget.petition.votes}'),
+            StreamBuilder<int>(
+              stream: getVoteCountStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text('Votes: ...',
+                      style: TextStyle(fontSize: 16));
+                } else if (snapshot.hasError) {
+                  return const Text('Votes: Error',
+                      style: TextStyle(fontSize: 16));
+                } else {
+                  return Text('Votes: ${snapshot.data}',
+                      style: const TextStyle(fontSize: 16));
+                }
+              },
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: hasVoted ? null : _vote,

@@ -13,11 +13,23 @@ class AuthService {
       // Create a new provider
       GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
-      // Optionally, set any custom parameters if needed
-      // googleProvider.setCustomParameters({'login_hint': 'user@example.com'});
+      // Set custom parameters to hint the email domain
+      googleProvider.setCustomParameters({'hd': 'tecnico.ulisboa.pt'});
 
       // Sign in with a popup and return the UserCredential
-      return await _auth.signInWithPopup(googleProvider);
+      UserCredential userCredential =
+          await _auth.signInWithPopup(googleProvider);
+
+      // Check if the email domain matches
+      if (userCredential.user?.email?.endsWith('@tecnico.ulisboa.pt') ??
+          false) {
+        return userCredential;
+      } else {
+        // Sign out if the email domain does not match
+        await signOut();
+        print('Error: Only @tecnico.ulisboa.pt emails are allowed.');
+        return null;
+      }
     } catch (e, stackTrace) {
       // Handle error
       print('Error during Google sign-in: $e');

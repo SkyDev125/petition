@@ -1,5 +1,5 @@
+// auth_service.dart
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -7,32 +7,21 @@ class AuthService {
   // Stream to listen to authentication changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Sign in with Google
+  // Sign in with Google using Firebase Auth's signInWithPopup
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      // Create a new provider
+      GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
-      if (googleUser == null) {
-        // The user canceled the sign-in
-        return null;
-      }
+      // Optionally, set any custom parameters if needed
+      // googleProvider.setCustomParameters({'login_hint': 'user@example.com'});
 
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google [UserCredential]
-      return await _auth.signInWithCredential(credential);
-    } catch (e) {
+      // Sign in with a popup and return the UserCredential
+      return await _auth.signInWithPopup(googleProvider);
+    } catch (e, stackTrace) {
       // Handle error
       print('Error during Google sign-in: $e');
+      print('Stack Trace: $stackTrace');
       return null;
     }
   }
@@ -40,6 +29,6 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
-    await GoogleSignIn().signOut();
+    // No need to sign out from GoogleSignIn explicitly when using signInWithPopup
   }
 }

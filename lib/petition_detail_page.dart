@@ -81,8 +81,11 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         }
       });
 
-      // Record that the user has voted
-      await _userVoteRef.child(user.uid).set(true);
+      // Record that the user has voted along with their email
+      await _userVoteRef.child(user.uid).set({
+        'email': user.email,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
 
       if (!mounted) return; // Check if the widget is still mounted
 
@@ -160,6 +163,23 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     });
   }
 
+  // Stream to listen to real-time voters' emails
+  Stream<List<String>> getVotersEmailsStream() {
+    return _userVoteRef.onValue.map((event) {
+      final data = event.snapshot.value as Map<dynamic, dynamic>?;
+      if (data == null) return <String>[];
+
+      // Extract emails from the data
+      List<String> emails = [];
+      data.forEach((key, value) {
+        if (value is Map<dynamic, dynamic> && value['email'] != null) {
+          emails.add(value['email']);
+        }
+      });
+      return emails;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,6 +220,40 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
                 backgroundColor: hasVoted ? Colors.red : Colors.blue,
               ),
               child: Text(hasVoted ? 'Retract Vote' : 'Vote'),
+            ),
+            const SizedBox(height: 30),
+            const Divider(),
+            const SizedBox(height: 10),
+            const Text(
+              'Voters:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: StreamBuilder<List<String>>(
+                stream: getVotersEmailsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Text('Error loading voters.');
+                  } else if (snapshot.hasData) {
+                    final emails = snapshot.data!;
+                    if (emails.isEmpty) {
+                      return const Text('No votes yet.');
+                    }
+                    return ListView.builder(
+                      itemCount: emails.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text(emails[index]),
+                        );
+                      },
+                    );
+                  } else {
+                    return const Text('No voters found.');
+                  }
+                },
+              ),
             ),
           ],
         ),

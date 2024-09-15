@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'petition_list_page.dart';
+import 'auth_wrapper.dart'; // Updated import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       darkTheme: ThemeData.dark(),
       themeMode:
           ThemeMode.system, // Automatically switch based on device settings
-      home: const PetitionListPage(),
+      home: const AuthWrapper(), // Use AuthWrapper
     );
   }
 }

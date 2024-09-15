@@ -40,12 +40,17 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
       // Check if the user has already voted on this petition
       DatabaseReference voteRef = _userVoteRef.child(user.uid);
       DataSnapshot snapshot = await voteRef.get();
+
+      if (!mounted) return; // Check if the widget is still mounted
+
       if (snapshot.exists) {
         setState(() {
           hasVoted = true;
         });
       }
     } catch (e) {
+      if (!mounted) return; // Check if the widget is still mounted
+
       // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error checking vote status: $e')),
@@ -57,13 +62,11 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
   Future<void> _vote() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Prompt to sign in anonymously
-      await _signInAnonymously();
-      user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        // If sign-in failed, exit the function
-        return;
-      }
+      // Optionally, you can prompt the user to sign in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to vote')),
+      );
+      return;
     }
 
     try {
@@ -80,8 +83,12 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         }
       });
 
+      if (!mounted) return; // Check if the widget is still mounted
+
       // Record that the user has voted
       await _userVoteRef.child(user.uid).set(true);
+
+      if (!mounted) return; // Check if the widget is still mounted
 
       setState(() {
         hasVoted = true;
@@ -91,24 +98,11 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
         const SnackBar(content: Text('Thank you for voting!')),
       );
     } catch (e) {
+      if (!mounted) return; // Check if the widget is still mounted
+
       // Handle errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to vote: $e')),
-      );
-    }
-  }
-
-  // Sign in the user anonymously if they are not signed in
-  Future<void> _signInAnonymously() async {
-    try {
-      await FirebaseAuth.instance.signInAnonymously();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in anonymously')),
-      );
-    } catch (e) {
-      // Handle errors during sign-in
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to sign in: $e')),
       );
     }
   }
@@ -167,4 +161,10 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
       ),
     );
   }
+}
+
+// Example of displaying the date as text without any imports
+String formatDateTime(DateTime dateTime) {
+  return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
+      '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 }

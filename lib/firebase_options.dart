@@ -54,13 +54,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyBFSO_znMTDsufH9PJDKpK1inmr4RrcWK8',
-    appId: '1:158151298283:web:f0ab90b7227b500cabc2ae',
+    appId: '1:158151298283:web:2fdf0fbf7f90a65fabc2ae',
     messagingSenderId: '158151298283',
     projectId: 'petition-app-d1052',
     authDomain: 'petition-app-d1052.firebaseapp.com',
-    databaseURL:
-        'https://petition-app-d1052-default-rtdb.europe-west1.firebasedatabase.app',
+    databaseURL: 'https://petition-app-d1052-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'petition-app-d1052.appspot.com',
-    measurementId: 'G-9NS13CY6Z8',
+    measurementId: 'G-KKPD002MYS',
   );
 }

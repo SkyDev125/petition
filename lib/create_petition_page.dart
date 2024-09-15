@@ -20,7 +20,11 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
       // Ensure user is signed in
       User? user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        await _signInAnonymously();
+        // Prompt user to sign in
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to create a petition')),
+        );
+        return;
       }
 
       // Generate a new petition reference with a unique ID
@@ -40,25 +44,20 @@ class _CreatePetitionPageState extends State<CreatePetitionPage> {
         // Save petition to Realtime Database
         await petitionRef.set(newPetition.toMap());
 
+        // After async call, check if the widget is still mounted
+        if (!mounted) return;
+
         // Navigate back to petition list
         Navigator.pop(context);
       } catch (e) {
+        // After async call, check if the widget is still mounted
+        if (!mounted) return;
+
         // Handle errors
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to create petition: $e')),
         );
       }
-    }
-  }
-
-  Future<void> _signInAnonymously() async {
-    try {
-      await FirebaseAuth.instance.signInAnonymously();
-    } catch (e) {
-      // Handle errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to sign in: $e')),
-      );
     }
   }
 

@@ -103,6 +103,51 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
     }
   }
 
+  // Function to retract a vote on a petition, which decrements the vote count in the database
+  Future<void> _retractVote() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to retract your vote')),
+      );
+      return;
+    }
+
+    try {
+      // Use a transaction to safely decrement the vote count
+      await _petitionRef.child('votesCount').runTransaction((currentVotes) {
+        if (currentVotes == null ||
+            (currentVotes is int && currentVotes <= 0)) {
+          return Transaction.abort();
+        } else if (currentVotes is int) {
+          return Transaction.success(currentVotes - 1);
+        } else {
+          return Transaction.abort();
+        }
+      });
+
+      // Remove the user's vote record
+      await _userVoteRef.child(user.uid).remove();
+
+      if (!mounted) return; // Check if the widget is still mounted
+
+      setState(() {
+        hasVoted = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your vote has been retracted.')),
+      );
+    } catch (e) {
+      if (!mounted) return; // Check if the widget is still mounted
+
+      // Handle errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to retract vote: $e')),
+      );
+    }
+  }
+
   // Stream to listen to real-time voteCount updates
   Stream<int> getVoteCountStream() {
     return _petitionRef.child('votesCount').onValue.map((event) {
@@ -144,8 +189,17 @@ class _PetitionDetailPageState extends State<PetitionDetailPage> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: hasVoted ? null : _vote,
-              child: Text(hasVoted ? 'You have voted' : 'Vote'),
+              onPressed: () {
+                if (hasVoted) {
+                  _retractVote();
+                } else {
+                  _vote();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: hasVoted ? Colors.red : Colors.blue,
+              ),
+              child: Text(hasVoted ? 'Retract Vote' : 'Vote'),
             ),
           ],
         ),

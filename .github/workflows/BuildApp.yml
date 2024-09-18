@@ -1,0 +1,48 @@
+name: BuildPage
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_page:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable' # or: 'beta', 'dev', 'master' (or 'main')
+
+      - name: Build page with Flutter
+        run: |
+          flutter pub get
+          flutter build web --release --pwa-strategy=none
+        working-directory: petiton_app
+
+      - name: Remove base tag for GitHub Pages
+        run: sed -i'' -e '/<base href/d' index.html
+        working-directory: petition_app/build/web
+
+      - name: Create CNAME file
+        run: echo "petition.shardware.net" > CNAME
+        working-directory: petition_app/build/web
+
+      - name: Push Build to Github Pages
+        run: |
+          git init
+          git branch -m main
+          git config --global user.email Builder@petition.shardware.net
+          git config --global user.name Builder
+          git remote add origin https://github.com/SkyDev125/petition_app_page.git
+          git add --all
+          git commit -m "update"
+          git push origin main -f
+        working-directory: petition_app/build/web
+
+      - name: Print versions
+        run: |
+          git --version
+          flutter --version
+        working-directory: petition_app
